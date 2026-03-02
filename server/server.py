@@ -4,12 +4,13 @@
 # Connects to the Remote Script's TCP server inside Ableton and
 # exposes tools for executing Python code and browsing the Live API.
 
-from mcp.server.fastmcp import FastMCP
-from pathlib import Path
 import json
 import logging
 import re
 import socket
+from pathlib import Path
+
+from mcp.server.fastmcp import FastMCP
 
 log = logging.getLogger("ableton-live-mcp")
 logging.basicConfig(
@@ -25,6 +26,7 @@ PORT = 16619
 # ---------------------------------------------------------------------------
 # TCP link to the Remote Script inside Ableton
 # ---------------------------------------------------------------------------
+
 
 class _Ableton:
     """Callable NDJSON client. Maintains a persistent TCP connection
@@ -57,7 +59,7 @@ class _Ableton:
                 self._reset()
         return {
             "status": "error",
-            "error": "Cannot reach Ableton: %s" % last_err,
+            "error": f"Cannot reach Ableton: {last_err}",
             "hint": "Is Ableton running with AbletonLiveMCP enabled?",
         }
 
@@ -91,6 +93,7 @@ else:
 # API reference registry
 # ---------------------------------------------------------------------------
 
+
 def _load_api_reference():
     path = Path(__file__).parent / "api_reference.json"
     try:
@@ -113,14 +116,28 @@ _CLASSES = API_REF  # everything left is a class
 # Search helpers
 # ---------------------------------------------------------------------------
 
+
 def _stem(word):
     """Reduce a word to a rough stem so quantize/quantization/quantized match."""
     w = word.lower()
     # Order matters: longest suffixes first
-    for suffix in ("ization", "ation", "tion", "ising", "izing", "ting",
-                    "ing", "ised", "ized", "ted", "ed", "es", "s"):
+    for suffix in (
+        "ization",
+        "ation",
+        "tion",
+        "ising",
+        "izing",
+        "ting",
+        "ing",
+        "ised",
+        "ized",
+        "ted",
+        "ed",
+        "es",
+        "s",
+    ):
         if len(w) > len(suffix) + 2 and w.endswith(suffix):
-            return w[:-len(suffix)]
+            return w[: -len(suffix)]
     return w
 
 
@@ -142,8 +159,7 @@ def _stems_close(a, b):
 def _match(query_stems, text):
     """True if every query stem matches at least one token stem in text."""
     text_stems = {_stem(t) for t in _tokenize(text)}
-    return all(any(_stems_close(qs, ts) for ts in text_stems)
-               for qs in query_stems)
+    return all(any(_stems_close(qs, ts) for ts in text_stems) for qs in query_stems)
 
 
 # ---------------------------------------------------------------------------
@@ -260,34 +276,46 @@ def api(class_name: str = None) -> str:
                 # Search properties then methods
                 for prop_name, prop in cls.get("properties", {}).items():
                     if prop_name.lower() == member_key:
-                        return json.dumps({
-                            "%s.%s" % (name, prop_name): {
-                                "kind": "property", "access_path": cls["access"],
-                                **prop,
+                        return json.dumps(
+                            {
+                                f"{name}.{prop_name}": {
+                                    "kind": "property",
+                                    "access_path": cls["access"],
+                                    **prop,
+                                },
                             },
-                        }, indent=2)
+                            indent=2,
+                        )
                 for method_name, method in cls.get("methods", {}).items():
                     if method_name.lower() == member_key:
-                        return json.dumps({
-                            "%s.%s" % (name, method_name): {
-                                "kind": "method", "access_path": cls["access"],
-                                **method,
+                        return json.dumps(
+                            {
+                                f"{name}.{method_name}": {
+                                    "kind": "method",
+                                    "access_path": cls["access"],
+                                    **method,
+                                },
                             },
-                        }, indent=2)
-                members = sorted(
-                    list(cls.get("properties", {})) + list(cls.get("methods", {}))
+                            indent=2,
+                        )
+                members = sorted(list(cls.get("properties", {})) + list(cls.get("methods", {})))
+                return json.dumps(
+                    {
+                        "error": f"'{name}' has no member '{member_part.strip()}'",
+                        "members": members,
+                    },
+                    indent=2,
                 )
-                return json.dumps({
-                    "error": "'%s' has no member '%s'" % (name, member_part.strip()),
-                    "members": members,
-                }, indent=2)
         # Class part didn't match — fall through to error below
 
     available = ", ".join(_CLASSES.keys())
-    return json.dumps({
-        "error": "Unknown class '%s'" % class_name,
-        "available": available,
-    }, indent=2)
+    return json.dumps(
+        {
+            "error": f"Unknown class '{class_name}'",
+            "available": available,
+        },
+        indent=2,
+    )
 
 
 @mcp.tool()
@@ -303,7 +331,9 @@ def search_api(query: str) -> str:
     raw = query.strip()
     stems = [_stem(w) for w in _tokenize(raw)]
     if not stems:
-        return json.dumps({"message": "Empty query. Try a keyword like 'tempo' or 'warp'."}, indent=2)
+        return json.dumps(
+            {"message": "Empty query. Try a keyword like 'tempo' or 'warp'."}, indent=2
+        )
 
     # Collect scored results: (score, cls_name, member_type, member_name, member_data)
     hits = []
@@ -316,7 +346,13 @@ def search_api(query: str) -> str:
                 hits.append((score, cls_name, "property", prop_name, prop))
 
         for method_name, method in cls.get("methods", {}).items():
-            searchable = " ".join([method_name, method.get("signature", ""), method.get("description", "")])
+            searchable = " ".join(
+                [
+                    method_name,
+                    method.get("signature", ""),
+                    method.get("description", ""),
+                ]
+            )
             if _match(stems, searchable):
                 score = 3 if _match(stems, method_name) else 1
                 hits.append((score, cls_name, "method", method_name, method))
@@ -326,14 +362,24 @@ def search_api(query: str) -> str:
     for enum_name, enum in _ENUMS.items():
         if enum_name == "description":
             continue
-        searchable = enum_name + " " + enum.get("used_by", "") + " " + " ".join(enum.get("values", {}).values())
+        searchable = (
+            enum_name
+            + " "
+            + enum.get("used_by", "")
+            + " "
+            + " ".join(enum.get("values", {}).values())
+        )
         if _match(stems, searchable):
             enum_hits[enum_name] = enum
 
     if not hits and not enum_hits:
-        return json.dumps({
-            "message": "No results for '%s'. Try a different keyword, or use api() to browse all classes." % raw,
-        }, indent=2)
+        return json.dumps(
+            {
+                "message": f"No results for '{raw}'. Try a different keyword, "
+                "or use api() to browse all classes.",
+            },
+            indent=2,
+        )
 
     # Group by class, sorted by best score per class, members sorted by score
     hits.sort(key=lambda h: (-h[0], h[1], h[3]))
@@ -342,19 +388,22 @@ def search_api(query: str) -> str:
     for score, cls_name, kind, member_name, member_data in hits:
         if cls_name not in results:
             cls = _CLASSES[cls_name]
-            results[cls_name] = {"description": cls["description"], "access": cls["access"]}
+            results[cls_name] = {
+                "description": cls["description"],
+                "access": cls["access"],
+            }
         bucket = "properties" if kind == "property" else "methods"
         results[cls_name].setdefault(bucket, {})[member_name] = member_data
 
     # Summary header
     member_count = len(hits)
     class_count = len(results)
-    summary = "Found %d match%s across %d class%s" % (
-        member_count, "" if member_count == 1 else "es",
-        class_count, "" if class_count == 1 else "es",
-    )
+    mc_s = "" if member_count == 1 else "es"
+    cc_s = "" if class_count == 1 else "es"
+    summary = f"Found {member_count} match{mc_s} across {class_count} class{cc_s}"
     if enum_hits:
-        summary += " + %d enum%s" % (len(enum_hits), "" if len(enum_hits) == 1 else "s")
+        eh_s = "" if len(enum_hits) == 1 else "s"
+        summary += f" + {len(enum_hits)} enum{eh_s}"
 
     output = {"_summary": summary}
     output.update(results)

@@ -1,7 +1,11 @@
 # Ableton Live MCP
 
+[![PyPI](https://img.shields.io/pypi/v/ableton-live-mcp)](https://pypi.org/project/ableton-live-mcp/)
+[![Python](https://img.shields.io/pypi/pyversions/ableton-live-mcp)](https://pypi.org/project/ableton-live-mcp/)
+[![Tests](https://github.com/opendining/ableton-mcp-server/actions/workflows/tests.yml/badge.svg)](https://github.com/opendining/ableton-mcp-server/actions/workflows/tests.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
 MCP Server for Ableton Live, to let AI agents control or inspect Ableton.
-This is just an experiment, please don't take it too seriously.
 
 ## Quick Start
 

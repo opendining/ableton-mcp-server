@@ -4,22 +4,31 @@
 # Accepts NDJSON messages over TCP, executes Python code against the
 # Live Object Model on the main thread, and returns serialized results.
 
-from _Framework.ControlSurface import ControlSurface
+from __future__ import annotations
+
 import json
+import socket
 import socketserver
 import threading
 import time
 import traceback
+from typing import TYPE_CHECKING
+
+from _Framework.ControlSurface import ControlSurface
+
+if TYPE_CHECKING:
+    from typing import Any
 
 PORT = 16619
 EXEC_TIMEOUT = 12
 
 
-def create_instance(c_instance):
+def create_instance(c_instance: Any) -> AbletonLiveMCP:
     return AbletonLiveMCP(c_instance)
 
 
 # ---- TCP layer (stdlib socketserver) ----
+
 
 class _Handler(socketserver.StreamRequestHandler):
     """Processes NDJSON messages from one MCP client at a time.
@@ -28,17 +37,17 @@ class _Handler(socketserver.StreamRequestHandler):
     socket — no manual makefile() or sendall() needed.
     """
 
-    def setup(self):
-        super(_Handler, self).setup()
+    def setup(self) -> None:
+        super().setup()
         self.server.controller._active_conn = self.connection
 
-    def finish(self):
+    def finish(self) -> None:
         self.server.controller._active_conn = None
-        super(_Handler, self).finish()
+        super().finish()
 
-    def handle(self):
+    def handle(self) -> None:
         ctrl = self.server.controller
-        ctrl._log("connected: %s:%d" % self.client_address)
+        ctrl._log(f"connected: {self.client_address[0]}:{self.client_address[1]}")
         ctrl.show_message("MCP connected")
         while True:
             line = self.rfile.readline()
@@ -49,14 +58,14 @@ class _Handler(socketserver.StreamRequestHandler):
                 self.wfile.write(json.dumps(resp, default=str).encode("utf-8") + b"\n")
                 self.wfile.flush()
             except Exception as exc:
-                ctrl._log("handler error: %s" % exc)
+                ctrl._log(f"handler error: {exc}")
                 try:
                     err = json.dumps({"status": "error", "error": str(exc)}).encode("utf-8") + b"\n"
                     self.wfile.write(err)
                     self.wfile.flush()
                 except Exception:
                     break
-        ctrl._log("disconnected: %s:%d" % self.client_address)
+        ctrl._log(f"disconnected: {self.client_address[0]}:{self.client_address[1]}")
 
 
 class _Server(socketserver.TCPServer):
@@ -65,24 +74,25 @@ class _Server(socketserver.TCPServer):
 
 # ---- Control Surface ----
 
+
 class AbletonLiveMCP(ControlSurface):
     """Bridges MCP agents to the Live Object Model via a TCP REPL."""
 
-    def __init__(self, c_instance):
+    def __init__(self, c_instance: Any) -> None:
         ControlSurface.__init__(self, c_instance)
-        self._tcp = None
-        self._active_conn = None
+        self._tcp: _Server | None = None
+        self._active_conn: socket.socket | None = None
         try:
             srv = _Server(("127.0.0.1", PORT), _Handler)
             srv.controller = self
             threading.Thread(target=srv.serve_forever, daemon=True).start()
             self._tcp = srv
-            self._log("listening on port %d" % PORT)
+            self._log(f"listening on port {PORT}")
         except Exception as exc:
-            self._log("failed to start: %s" % exc)
+            self._log(f"failed to start: {exc}")
         self.show_message("AbletonLiveMCP v2")
 
-    def disconnect(self):
+    def disconnect(self) -> None:
         if self._active_conn:
             try:
                 self._active_conn.close()
@@ -95,12 +105,12 @@ class AbletonLiveMCP(ControlSurface):
 
     # ---- Logging ----
 
-    def _log(self, msg):
+    def _log(self, msg: object) -> None:
         self.log_message("AbletonLiveMCP: " + str(msg))
 
     # ---- Message dispatch ----
 
-    def _dispatch(self, raw):
+    def _dispatch(self, raw: bytes) -> dict[str, Any]:
         """Parse an NDJSON line and route it."""
         try:
             msg = json.loads(raw)
@@ -118,16 +128,16 @@ class AbletonLiveMCP(ControlSurface):
 
     # ---- Code execution ----
 
-    def _execute(self, code):
+    def _execute(self, code: str) -> dict[str, Any]:
         """Run Python code on Ableton's main thread and return the result."""
-        self._log("exec: %s" % code[:200])
+        self._log(f"exec: {code[:200]}")
 
         try:
             scope = self._build_scope()
         except Exception as exc:
             return {
                 "status": "error",
-                "error": "Scope unavailable: %s" % exc,
+                "error": f"Scope unavailable: {exc}",
                 "hint": "Ableton may still be loading.",
             }
 
@@ -158,7 +168,7 @@ class AbletonLiveMCP(ControlSurface):
                     "elapsed": round(time.time() - t0, 3),
                 }
             except Exception as exc:
-                self._log("error: %s" % exc)
+                self._log(f"error: {exc}")
                 resp = {
                     "status": "error",
                     "error": str(exc),
@@ -166,8 +176,7 @@ class AbletonLiveMCP(ControlSurface):
                 }
                 if multiline:
                     resp["warning"] = (
-                        "Multi-line code may have partially executed. "
-                        "Use song.undo() to roll back."
+                        "Multi-line code may have partially executed. Use song.undo() to roll back."
                     )
                 container[0] = resp
             finally:
@@ -183,11 +192,11 @@ class AbletonLiveMCP(ControlSurface):
 
         return {
             "status": "error",
-            "error": "Timed out after %ds" % EXEC_TIMEOUT,
+            "error": f"Timed out after {EXEC_TIMEOUT}s",
             "warning": "Code may still be running on the main thread.",
         }
 
-    def _build_scope(self):
+    def _build_scope(self) -> dict[str, Any]:
         """Assemble the namespace available to executed code."""
         import Live
 
@@ -208,9 +217,9 @@ class AbletonLiveMCP(ControlSurface):
             Returns the BrowserItem. Raises ValueError if not found."""
             item = find_item(parent, query)
             if item is None:
-                self._log("load_to: no match for %r in %s" % (query, parent.name))
-                raise ValueError("No loadable item matching %r" % query)
-            self._log("load_to: %r → '%s' → track '%s'" % (query, item.name, track.name))
+                self._log(f"load_to: no match for {query!r} in {parent.name}")
+                raise ValueError(f"No loadable item matching {query!r}")
+            self._log(f"load_to: {query!r} → '{item.name}' → track '{track.name}'")
             song.view.selected_track = track
             bro.load_item(item)
             return item
@@ -236,7 +245,8 @@ class AbletonLiveMCP(ControlSurface):
 
 # ---- Built-in helpers (injected into every execution scope) ----
 
-def find_items(parent, query, max_depth=5, limit=20):
+
+def find_items(parent: Any, query: str, max_depth: int = 5, limit: int = 20) -> list:
     """Search a browser tree breadth-first for loadable items matching query
     (case-insensitive substring). Returns a ranked list of BrowserItems:
     exact name matches first, then starts-with, then substring."""
@@ -263,14 +273,16 @@ def find_items(parent, query, max_depth=5, limit=20):
                         substring.append(child)
                 if hasattr(child, "children") and child.children:
                     queue.append((child, depth + 1))
-        except Exception:
+        except (AttributeError, RuntimeError):
+            # Live API may raise AttributeError on stale refs or
+            # RuntimeError on objects that vanish mid-iteration.
             pass
 
     results = exact + prefix + substring
     return results[:limit]
 
 
-def find_item(parent, query, max_depth=5):
+def find_item(parent: Any, query: str, max_depth: int = 5) -> Any:
     """Search a browser tree for the best-matching loadable item.
     Returns a BrowserItem or None. Prefers exact matches over substrings,
     and shallow results over deep ones (breadth-first)."""
@@ -280,7 +292,8 @@ def find_item(parent, query, max_depth=5):
 
 # ---- Serialization (module-level for testability) ----
 
-def serialize(obj, _depth=0):
+
+def serialize(obj: Any, _depth: int = 0) -> Any:
     """Convert Live API objects into JSON-serializable Python types.
 
     Max depth of 4 prevents runaway recursion on circular refs.
@@ -323,7 +336,14 @@ def serialize(obj, _depth=0):
     if hasattr(obj, "name"):
         try:
             out = {"name": obj.name}
-            for attr in ("value", "min", "max", "is_enabled", "is_active", "is_quantized"):
+            for attr in (
+                "value",
+                "min",
+                "max",
+                "is_enabled",
+                "is_active",
+                "is_quantized",
+            ):
                 if hasattr(obj, attr):
                     try:
                         out[attr] = serialize(getattr(obj, attr), d)

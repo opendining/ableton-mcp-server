@@ -4,12 +4,14 @@ These are module-level functions in ableton/__init__.py that don't need
 Ableton running. We mock the browser tree with simple objects.
 """
 
+
 # We can't import from ableton/__init__.py directly because it imports
 # _Framework.ControlSurface which only exists inside Ableton. Instead,
 # exec the module-level functions into a namespace.
 def _load_helpers():
     """Extract the pure functions from the remote script source."""
     from pathlib import Path
+
     src = (Path(__file__).parent.parent / "ableton" / "__init__.py").read_text(encoding="utf-8")
 
     # Extract everything after "# ---- Built-in helpers" and
@@ -17,7 +19,8 @@ def _load_helpers():
     ns = {"json": __import__("json"), "time": __import__("time")}
     marker = "# ---- Built-in helpers"
     idx = src.index(marker)
-    exec(src[idx:], ns)
+    # Prepend future annotations so type hints are strings (not evaluated at runtime)
+    exec("from __future__ import annotations\n" + src[idx:], ns)
     return ns
 
 
@@ -41,42 +44,69 @@ class MockBrowserItem:
 
 def make_drums_tree():
     """Mimics the real browser.drums structure that caused the 808 bug."""
-    return MockBrowserItem("Drums", children=[
-        # "Drum Hits" folder comes first alphabetically — depth-first would enter here
-        MockBrowserItem("Drum Hits", children=[
-            MockBrowserItem("Kick", children=[
-                MockBrowserItem("Kick 808 Boom.wav", is_loadable=True),
-                MockBrowserItem("Kick 808 Deep.wav", is_loadable=True),
-                MockBrowserItem("Kick Acoustic.wav", is_loadable=True),
-            ]),
-            MockBrowserItem("Cowbell", children=[
-                MockBrowserItem("Cowbell 808 DMX.wav", is_loadable=True),
-            ]),
-        ]),
-        # Kits at top level — what we actually want
-        MockBrowserItem("505 Core Kit.adg", is_loadable=True),
-        MockBrowserItem("808 Core Kit.adg", is_loadable=True),
-        MockBrowserItem("909 Core Kit.adg", is_loadable=True),
-        MockBrowserItem("Boom Bap Kit.adg", is_loadable=True),
-    ])
+    return MockBrowserItem(
+        "Drums",
+        children=[
+            # "Drum Hits" folder comes first alphabetically — depth-first would enter here
+            MockBrowserItem(
+                "Drum Hits",
+                children=[
+                    MockBrowserItem(
+                        "Kick",
+                        children=[
+                            MockBrowserItem("Kick 808 Boom.wav", is_loadable=True),
+                            MockBrowserItem("Kick 808 Deep.wav", is_loadable=True),
+                            MockBrowserItem("Kick Acoustic.wav", is_loadable=True),
+                        ],
+                    ),
+                    MockBrowserItem(
+                        "Cowbell",
+                        children=[
+                            MockBrowserItem("Cowbell 808 DMX.wav", is_loadable=True),
+                        ],
+                    ),
+                ],
+            ),
+            # Kits at top level — what we actually want
+            MockBrowserItem("505 Core Kit.adg", is_loadable=True),
+            MockBrowserItem("808 Core Kit.adg", is_loadable=True),
+            MockBrowserItem("909 Core Kit.adg", is_loadable=True),
+            MockBrowserItem("Boom Bap Kit.adg", is_loadable=True),
+        ],
+    )
 
 
 def make_instruments_tree():
     """Mimics browser.instruments with nested presets."""
-    return MockBrowserItem("Instruments", children=[
-        MockBrowserItem("Drift", children=[
-            MockBrowserItem("Piano & Keys", children=[
-                MockBrowserItem("Grand Piano.adg", is_loadable=True),
-                MockBrowserItem("E-Piano Rhodish.adg", is_loadable=True),
-            ]),
-            MockBrowserItem("Synth Lead", children=[
-                MockBrowserItem("Homebound Lead.adg", is_loadable=True),
-            ]),
-        ]),
-        MockBrowserItem("Simpler", children=[
-            MockBrowserItem("Piano Simple.adg", is_loadable=True),
-        ]),
-    ])
+    return MockBrowserItem(
+        "Instruments",
+        children=[
+            MockBrowserItem(
+                "Drift",
+                children=[
+                    MockBrowserItem(
+                        "Piano & Keys",
+                        children=[
+                            MockBrowserItem("Grand Piano.adg", is_loadable=True),
+                            MockBrowserItem("E-Piano Rhodish.adg", is_loadable=True),
+                        ],
+                    ),
+                    MockBrowserItem(
+                        "Synth Lead",
+                        children=[
+                            MockBrowserItem("Homebound Lead.adg", is_loadable=True),
+                        ],
+                    ),
+                ],
+            ),
+            MockBrowserItem(
+                "Simpler",
+                children=[
+                    MockBrowserItem("Piano Simple.adg", is_loadable=True),
+                ],
+            ),
+        ],
+    )
 
 
 # ── find_items tests ─────────────────────────────────────────────────────────
@@ -99,10 +129,13 @@ class TestFindItems:
 
     def test_exact_name_beats_prefix(self):
         """If bare name exactly equals query, it should come before starts-with."""
-        tree = MockBrowserItem("root", children=[
-            MockBrowserItem("Reverb Extra.adg", is_loadable=True),
-            MockBrowserItem("Reverb.adg", is_loadable=True),
-        ])
+        tree = MockBrowserItem(
+            "root",
+            children=[
+                MockBrowserItem("Reverb Extra.adg", is_loadable=True),
+                MockBrowserItem("Reverb.adg", is_loadable=True),
+            ],
+        )
         results = find_items(tree, "reverb")
         assert results[0].name == "Reverb.adg"
 

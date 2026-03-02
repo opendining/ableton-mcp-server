@@ -8,16 +8,15 @@ so tests run fine without Ableton.
 import json
 
 from server.server import (
-    _stem,
-    _tokenize,
-    _stems_close,
-    _match,
     _CLASSES,
     _ENUMS,
+    _match,
+    _stem,
+    _stems_close,
+    _tokenize,
     api,
     search_api,
 )
-
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -59,7 +58,11 @@ class TestTokenize:
 
     def test_mixed(self):
         assert _tokenize("Audio warp_mode (0=Beats)") == [
-            "audio", "warp", "mode", "0", "beats"
+            "audio",
+            "warp",
+            "mode",
+            "0",
+            "beats",
         ]
 
     def test_empty(self):
@@ -139,9 +142,21 @@ class TestDataIntegrity:
                 assert "description" in method, f"{cls_name}.{method_name} missing description"
 
     def test_expected_classes_present(self):
-        expected = {"Song", "Track", "Clip", "ClipSlot", "Device",
-                    "DeviceParameter", "MixerDevice", "Browser",
-                    "BrowserItem", "Scene", "Chain", "Song.View", "DrumPad"}
+        expected = {
+            "Song",
+            "Track",
+            "Clip",
+            "ClipSlot",
+            "Device",
+            "DeviceParameter",
+            "MixerDevice",
+            "Browser",
+            "BrowserItem",
+            "Scene",
+            "Chain",
+            "Song.View",
+            "DrumPad",
+        }
         assert expected.issubset(_CLASSES.keys())
 
     def test_enums_have_values(self):

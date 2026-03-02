@@ -11,6 +11,10 @@ license = "MIT"
 keywords = ["ableton", "live", "mcp", "model-context-protocol", "music", "daw", "midi"]
 classifiers = [
     "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "Operating System :: OS Independent",
     "Topic :: Multimedia :: Sound/Audio",
     "Intended Audience :: Developers",
@@ -18,6 +22,11 @@ classifiers = [
 dependencies = [
     "mcp[cli]>=1.3.0",
 ]
+
+[project.urls]
+Homepage = "https://github.com/opendining/ableton-mcp-server"
+Repository = "https://github.com/opendining/ableton-mcp-server"
+Issues = "https://github.com/opendining/ableton-mcp-server/issues"
 
 [project.scripts]
 ableton-live-mcp = "server.server:main"
@@ -30,9 +39,20 @@ build-backend = "setuptools.build_meta"
 packages = ["server"]
 
 [tool.setuptools.package-data]
-server = ["api_reference.json", "api_reference.md"]
+server = ["api_reference.json", "api_reference.md", "py.typed"]
 
 [dependency-groups]
 dev = [
     "pytest>=9.0.2",
+    "ruff>=0.9",
 ]
+
+[tool.ruff]
+target-version = "py310"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
