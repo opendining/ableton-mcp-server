@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "AbletonLiveMCP": {
+      "command": "uv",
+      "args": ["run", "--directory", "${CLAUDE_PLUGIN_ROOT}", "ableton-live-mcp"]
+    }
+  }
+}

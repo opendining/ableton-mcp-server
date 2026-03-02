@@ -1,0 +1,11 @@
+{
+  "name": "ableton-live-mcp",
+  "version": "0.1.0",
+  "description": "Control Ableton Live with AI through the Model Context Protocol",
+  "author": {
+    "name": "Tim Ridgely",
+    "email": "tim@ridge.ly"
+  },
+  "license": "MIT",
+  "keywords": ["ableton", "music", "daw", "midi", "mcp", "live"]
+}

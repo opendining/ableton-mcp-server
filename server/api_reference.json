@@ -1,0 +1,349 @@
+{
+  "Song": {
+    "description": "The Live Set — transport, tempo, tracks, scenes, global controls",
+    "access": "song",
+    "properties": {
+      "tempo": { "type": "float", "access": "rw", "description": "BPM (20–999)" },
+      "signature_numerator": { "type": "int", "access": "rw", "description": "Time signature numerator" },
+      "signature_denominator": { "type": "int", "access": "rw", "description": "Time signature denominator" },
+      "is_playing": { "type": "bool", "access": "r", "description": "Transport is running" },
+      "current_song_time": { "type": "float", "access": "rw", "description": "Current playback position in beats" },
+      "song_length": { "type": "float", "access": "r", "description": "Total length of arrangement in beats" },
+      "loop": { "type": "bool", "access": "rw", "description": "Arrangement loop enabled" },
+      "loop_start": { "type": "float", "access": "rw", "description": "Arrangement loop start in beats" },
+      "loop_length": { "type": "float", "access": "rw", "description": "Arrangement loop length in beats" },
+      "record_mode": { "type": "bool", "access": "rw", "description": "Global record enabled" },
+      "overdub": { "type": "bool", "access": "rw", "description": "MIDI overdub in session" },
+      "metronome": { "type": "bool", "access": "rw", "description": "Metronome (click) enabled" },
+      "punch_in": { "type": "bool", "access": "rw", "description": "Punch-in recording enabled" },
+      "punch_out": { "type": "bool", "access": "rw", "description": "Punch-out recording enabled" },
+      "nudge_up": { "type": "bool", "access": "rw", "description": "Tempo nudge up active" },
+      "nudge_down": { "type": "bool", "access": "rw", "description": "Tempo nudge down active" },
+      "can_undo": { "type": "bool", "access": "r", "description": "Undo is available" },
+      "can_redo": { "type": "bool", "access": "r", "description": "Redo is available" },
+      "groove_amount": { "type": "float", "access": "rw", "description": "Global groove amount (0.0–1.0)" },
+      "swing_amount": { "type": "float", "access": "rw", "description": "Global swing amount (0.0–1.0)" },
+      "tracks": { "type": "list[Track]", "access": "r", "description": "All regular tracks" },
+      "return_tracks": { "type": "list[Track]", "access": "r", "description": "All return/send tracks" },
+      "master_track": { "type": "Track", "access": "r", "description": "The master track" },
+      "scenes": { "type": "list[Scene]", "access": "r", "description": "All scenes" },
+      "view": { "type": "Song.View", "access": "r", "description": "View state (selected_track, selected_scene, etc.)" },
+      "clip_trigger_quantization": { "type": "int", "access": "rw", "description": "Clip launch quantization (0=None, 1=8 bars … 13=1/32)" },
+      "midi_recording_quantization": { "type": "int", "access": "rw", "description": "MIDI recording quantization (0=None, 1=1/4 … 7=1/32)" },
+      "exclusive_arm": { "type": "bool", "access": "rw", "description": "Only one track armed at a time" },
+      "exclusive_solo": { "type": "bool", "access": "rw", "description": "Only one track soloed at a time" }
+    },
+    "methods": {
+      "start_playing": { "signature": "()", "description": "Start transport" },
+      "stop_playing": { "signature": "()", "description": "Stop transport" },
+      "stop_all_clips": { "signature": "()", "description": "Stop all playing clips" },
+      "continue_playing": { "signature": "()", "description": "Continue from current position" },
+      "create_midi_track": { "signature": "(index)", "description": "Create MIDI track at index (-1 to append)" },
+      "create_audio_track": { "signature": "(index)", "description": "Create audio track at index (-1 to append)" },
+      "create_return_track": { "signature": "()", "description": "Create a new return track" },
+      "create_scene": { "signature": "(index)", "description": "Create scene at index (-1 to append)" },
+      "delete_track": { "signature": "(index)", "description": "Delete track at index (can't delete last track)" },
+      "delete_scene": { "signature": "(index)", "description": "Delete scene at index" },
+      "delete_return_track": { "signature": "(index)", "description": "Delete return track at index" },
+      "duplicate_track": { "signature": "(index)", "description": "Duplicate a track" },
+      "duplicate_scene": { "signature": "(index)", "description": "Duplicate a scene" },
+      "undo": { "signature": "()", "description": "Undo the last action" },
+      "redo": { "signature": "()", "description": "Redo the last undone action" },
+      "capture_midi": { "signature": "()", "description": "Capture recently played MIDI notes" },
+      "jump_by": { "signature": "(beats)", "description": "Move playback position by beats" },
+      "tap_tempo": { "signature": "()", "description": "Tap tempo" },
+      "trigger_session_record": { "signature": "()", "description": "Toggle session recording" }
+    }
+  },
+  "Track": {
+    "description": "A track — audio or MIDI, regular or return",
+    "access": "song.tracks[i] / find_track(name)",
+    "properties": {
+      "name": { "type": "str", "access": "rw", "description": "Track name" },
+      "color_index": { "type": "int", "access": "rw", "description": "Track color (0–69)" },
+      "mute": { "type": "bool", "access": "rw", "description": "Track is muted" },
+      "solo": { "type": "bool", "access": "rw", "description": "Track is soloed" },
+      "arm": { "type": "bool", "access": "rw", "description": "Track is armed for recording" },
+      "has_midi_input": { "type": "bool", "access": "r", "description": "True if MIDI track" },
+      "has_audio_input": { "type": "bool", "access": "r", "description": "True if audio track" },
+      "is_grouped": { "type": "bool", "access": "r", "description": "Track is inside a group" },
+      "is_foldable": { "type": "bool", "access": "r", "description": "Track is a group track" },
+      "fold_state": { "type": "int", "access": "rw", "description": "Group fold state (0=unfolded, 1=folded)" },
+      "is_visible": { "type": "bool", "access": "r", "description": "Track is visible (not hidden in folded group)" },
+      "can_be_armed": { "type": "bool", "access": "r", "description": "Track supports arming" },
+      "current_monitoring_state": { "type": "int", "access": "rw", "description": "Monitoring: 0=In, 1=Auto, 2=Off" },
+      "playing_slot_index": { "type": "int", "access": "r", "description": "Index of currently playing clip slot (-2 if none)" },
+      "fired_slot_index": { "type": "int", "access": "r", "description": "Index of triggered (queued) clip slot" },
+      "clip_slots": { "type": "list[ClipSlot]", "access": "r", "description": "All clip slots on this track" },
+      "devices": { "type": "list[Device]", "access": "r", "description": "All devices on this track" },
+      "mixer_device": { "type": "MixerDevice", "access": "r", "description": "Volume, panning, sends" },
+      "available_input_routing_channels": { "type": "list", "access": "r", "description": "Available input routing options" },
+      "available_output_routing_channels": { "type": "list", "access": "r", "description": "Available output routing options" },
+      "input_routing_channel": { "type": "RoutingChannel", "access": "rw", "description": "Current input routing" },
+      "output_routing_channel": { "type": "RoutingChannel", "access": "rw", "description": "Current output routing" }
+    },
+    "methods": {
+      "duplicate_clip_slot": { "signature": "(slot_index)", "description": "Duplicate clip in slot to the next empty slot" },
+      "delete_device": { "signature": "(device_index)", "description": "Delete a device from the chain" },
+      "stop_all_clips": { "signature": "()", "description": "Stop all clips on this track" }
+    }
+  },
+  "ClipSlot": {
+    "description": "A slot in the session grid that can hold a clip",
+    "access": "song.tracks[i].clip_slots[j]",
+    "properties": {
+      "has_clip": { "type": "bool", "access": "r", "description": "Slot contains a clip" },
+      "clip": { "type": "Clip|None", "access": "r", "description": "The clip in this slot (None if empty)" },
+      "is_playing": { "type": "bool", "access": "r", "description": "Clip in slot is playing" },
+      "is_triggered": { "type": "bool", "access": "r", "description": "Clip in slot is triggered (queued)" },
+      "is_recording": { "type": "bool", "access": "r", "description": "Slot is recording" },
+      "has_stop_button": { "type": "bool", "access": "rw", "description": "Slot has a stop button" },
+      "color_index": { "type": "int", "access": "rw", "description": "Slot color (0–69)" },
+      "controls_other_clips": { "type": "bool", "access": "r", "description": "Slot controls follow-action targets" }
+    },
+    "methods": {
+      "create_clip": { "signature": "(length)", "description": "Create an empty MIDI clip (length in beats)" },
+      "delete_clip": { "signature": "()", "description": "Delete the clip in this slot" },
+      "fire": { "signature": "()", "description": "Launch the clip (or stop button)" },
+      "stop": { "signature": "()", "description": "Stop the playing clip" },
+      "duplicate_clip_to": { "signature": "(target_slot)", "description": "Duplicate clip to another slot" }
+    }
+  },
+  "Clip": {
+    "description": "A MIDI or audio clip",
+    "access": "song.tracks[i].clip_slots[j].clip",
+    "properties": {
+      "name": { "type": "str", "access": "rw", "description": "Clip name" },
+      "color_index": { "type": "int", "access": "rw", "description": "Clip color (0–69)" },
+      "length": { "type": "float", "access": "r", "description": "Clip length in beats" },
+      "is_midi_clip": { "type": "bool", "access": "r", "description": "True if MIDI clip" },
+      "is_audio_clip": { "type": "bool", "access": "r", "description": "True if audio clip" },
+      "is_playing": { "type": "bool", "access": "r", "description": "Clip is currently playing" },
+      "is_triggered": { "type": "bool", "access": "r", "description": "Clip is triggered (queued)" },
+      "is_recording": { "type": "bool", "access": "r", "description": "Clip is recording" },
+      "looping": { "type": "bool", "access": "rw", "description": "Loop enabled" },
+      "loop_start": { "type": "float", "access": "rw", "description": "Loop start in beats" },
+      "loop_end": { "type": "float", "access": "rw", "description": "Loop end in beats" },
+      "start_marker": { "type": "float", "access": "rw", "description": "Start marker position" },
+      "end_marker": { "type": "float", "access": "rw", "description": "End marker position" },
+      "position": { "type": "float", "access": "r", "description": "Current playback position in beats" },
+      "playing_position": { "type": "float", "access": "r", "description": "Visible playback position" },
+      "launch_mode": { "type": "int", "access": "rw", "description": "0=Trigger, 1=Gate, 2=Toggle, 3=Repeat" },
+      "launch_quantization": { "type": "int", "access": "rw", "description": "Clip-level launch quantization override" },
+      "muted": { "type": "bool", "access": "rw", "description": "Clip is deactivated" },
+      "gain": { "type": "float", "access": "rw", "description": "Audio clip gain" },
+      "pitch_coarse": { "type": "int", "access": "rw", "description": "Audio clip pitch transpose in semitones (-48–48)" },
+      "pitch_fine": { "type": "float", "access": "rw", "description": "Audio clip fine pitch in cents (-50–50)" },
+      "warp_mode": { "type": "int", "access": "rw", "description": "Audio warp mode (0=Beats, 1=Tones, 2=Texture, 3=Re-Pitch, 4=Complex, 6=Pro)" },
+      "warping": { "type": "bool", "access": "rw", "description": "Audio clip warping enabled" },
+      "signature_numerator": { "type": "int", "access": "rw", "description": "Clip time signature numerator" },
+      "signature_denominator": { "type": "int", "access": "rw", "description": "Clip time signature denominator" },
+      "will_record_on_start": { "type": "bool", "access": "r", "description": "Clip will start recording on launch" },
+      "velocity_amount": { "type": "float", "access": "rw", "description": "Velocity → volume amount" },
+      "ram_mode": { "type": "bool", "access": "rw", "description": "Audio clip RAM mode (preload to RAM)" },
+      "file_path": { "type": "str", "access": "r", "description": "Audio clip source file path" }
+    },
+    "methods": {
+      "fire": { "signature": "()", "description": "Launch this clip" },
+      "stop": { "signature": "()", "description": "Stop this clip" },
+      "add_new_notes": { "signature": "(notes_tuple)", "description": "Add MIDI notes — pass tuple of MidiNoteSpecification" },
+      "get_notes_extended": { "signature": "(from_pitch, pitch_span, from_time, time_span)", "description": "Get MIDI notes in range — returns list of note objects" },
+      "remove_notes_extended": { "signature": "(from_pitch, pitch_span, from_time, time_span)", "description": "Remove MIDI notes in range" },
+      "select_all_notes": { "signature": "()", "description": "Select all notes in the clip" },
+      "replace_selected_notes": { "signature": "(notes_tuple)", "description": "Replace selected notes with new ones" },
+      "quantize": { "signature": "(grid, strength)", "description": "Quantize clip notes — grid: 1=1/4, 2=1/8, etc.; strength: 0.0–1.0" },
+      "quantize_pitch": { "signature": "(pitch, grid, strength)", "description": "Quantize only notes of a specific pitch" },
+      "duplicate_loop": { "signature": "()", "description": "Double the loop and duplicate content" },
+      "crop": { "signature": "()", "description": "Crop clip to loop selection" },
+      "move_playing_pos": { "signature": "(beats)", "description": "Move clip playback position" },
+      "set_fire_button_state": { "signature": "(state)", "description": "Simulate clip launch button" },
+      "deselect_all_notes": { "signature": "()", "description": "Deselect all notes" },
+      "clear_all_envelopes": { "signature": "()", "description": "Remove all automation envelopes" },
+      "clear_envelope": { "signature": "(parameter)", "description": "Clear automation for a specific parameter" }
+    }
+  },
+  "Device": {
+    "description": "An instrument or effect on a track",
+    "access": "song.tracks[i].devices[j]",
+    "properties": {
+      "name": { "type": "str", "access": "rw", "description": "Device display name" },
+      "class_name": { "type": "str", "access": "r", "description": "Device class (e.g. 'Reverb', 'Operator')" },
+      "type": { "type": "int", "access": "r", "description": "0=audio_effect, 1=instrument, 2=midi_effect" },
+      "is_active": { "type": "bool", "access": "r", "description": "Device is active (not deleted)" },
+      "parameters": { "type": "list[DeviceParameter]", "access": "r", "description": "All device parameters (index 0 is always on/off)" },
+      "can_have_chains": { "type": "bool", "access": "r", "description": "Device supports chains (Rack)" },
+      "chains": { "type": "list[Chain]", "access": "r", "description": "Chains in a Rack device" },
+      "can_have_drum_pads": { "type": "bool", "access": "r", "description": "Device has drum pads (Drum Rack)" },
+      "drum_pads": { "type": "list[DrumPad]", "access": "r", "description": "Drum pads (in Drum Rack)" },
+      "presets": { "type": "list", "access": "r", "description": "Available presets" }
+    },
+    "methods": {
+      "store_chosen_bank": { "signature": "(index, name)", "description": "Store the current bank selection" }
+    }
+  },
+  "DeviceParameter": {
+    "description": "A single parameter on a device (knob, slider, toggle)",
+    "access": "song.tracks[i].devices[j].parameters[k]",
+    "properties": {
+      "name": { "type": "str", "access": "r", "description": "Parameter name" },
+      "value": { "type": "float", "access": "rw", "description": "Current value (between min and max)" },
+      "min": { "type": "float", "access": "r", "description": "Minimum value" },
+      "max": { "type": "float", "access": "r", "description": "Maximum value" },
+      "default_value": { "type": "float", "access": "r", "description": "Default/reset value" },
+      "is_enabled": { "type": "bool", "access": "r", "description": "Parameter is active (not grayed out)" },
+      "is_quantized": { "type": "bool", "access": "r", "description": "Parameter has discrete steps (e.g. on/off, dropdown)" },
+      "value_items": { "type": "list[str]", "access": "r", "description": "Labels for quantized values (empty if continuous)" },
+      "state": { "type": "int", "access": "r", "description": "Automation state: 0=none, 1=playing, 2=overridden" },
+      "automation_state": { "type": "int", "access": "r", "description": "Same as state — automation status" },
+      "original_name": { "type": "str", "access": "r", "description": "Parameter name before any user rename" }
+    },
+    "methods": {
+      "re_enable_automation": { "signature": "()", "description": "Re-enable overridden automation" }
+    }
+  },
+  "MixerDevice": {
+    "description": "A track's mixer — volume, panning, sends, crossfade",
+    "access": "song.tracks[i].mixer_device",
+    "properties": {
+      "volume": { "type": "DeviceParameter", "access": "r", "description": "Volume fader (use .value to get/set, 0.0–0.85 ≈ 0 dB, max 1.0)" },
+      "panning": { "type": "DeviceParameter", "access": "r", "description": "Pan knob (use .value, -1.0=L, 0.0=C, 1.0=R)" },
+      "sends": { "type": "list[DeviceParameter]", "access": "r", "description": "Send levels — one per return track (use [i].value)" },
+      "crossfader": { "type": "DeviceParameter", "access": "r", "description": "Master crossfader (master track only)" },
+      "song_tempo": { "type": "DeviceParameter", "access": "r", "description": "Tempo parameter for automation (master track only)" },
+      "cue_volume": { "type": "DeviceParameter", "access": "r", "description": "Cue/preview volume (master track only)" },
+      "crossfade_assign": { "type": "int", "access": "rw", "description": "Crossfade assignment: 0=None, 1=A, 2=B" }
+    },
+    "methods": {}
+  },
+  "Browser": {
+    "description": "Ableton's content browser — instruments, effects, drums, sounds, samples",
+    "access": "browser (= app.browser)",
+    "properties": {
+      "instruments": { "type": "BrowserItem", "access": "r", "description": "Root node for instruments" },
+      "drums": { "type": "BrowserItem", "access": "r", "description": "Root node for drum kits" },
+      "sounds": { "type": "BrowserItem", "access": "r", "description": "Root node for sounds" },
+      "audio_effects": { "type": "BrowserItem", "access": "r", "description": "Root node for audio effects" },
+      "midi_effects": { "type": "BrowserItem", "access": "r", "description": "Root node for MIDI effects" },
+      "max_for_live": { "type": "BrowserItem", "access": "r", "description": "Root node for Max for Live devices" },
+      "clips": { "type": "BrowserItem", "access": "r", "description": "Root node for clip presets" },
+      "samples": { "type": "BrowserItem", "access": "r", "description": "Root node for samples" },
+      "packs": { "type": "BrowserItem", "access": "r", "description": "Root node for packs" },
+      "user_library": { "type": "BrowserItem", "access": "r", "description": "Root node for user library" },
+      "user_folders": { "type": "list[BrowserItem]", "access": "r", "description": "User-defined browser folders" }
+    },
+    "methods": {
+      "load_item": { "signature": "(item)", "description": "Load a BrowserItem onto the selected track" }
+    }
+  },
+  "BrowserItem": {
+    "description": "A node in the browser tree (folder or loadable item)",
+    "access": "browser.instruments / find_item(parent, query)",
+    "properties": {
+      "name": { "type": "str", "access": "r", "description": "Display name" },
+      "uri": { "type": "str", "access": "r", "description": "Internal URI" },
+      "children": { "type": "list[BrowserItem]", "access": "r", "description": "Child items (subfolders / presets)" },
+      "is_loadable": { "type": "bool", "access": "r", "description": "Can be loaded onto a track" },
+      "is_folder": { "type": "bool", "access": "r", "description": "Item is a folder (has children)" },
+      "is_device": { "type": "bool", "access": "r", "description": "Item is a device" },
+      "source": { "type": "str", "access": "r", "description": "Source of the item (e.g. pack name)" }
+    },
+    "methods": {}
+  },
+  "Scene": {
+    "description": "A horizontal row of clip slots — launches all clips in the row",
+    "access": "song.scenes[i]",
+    "properties": {
+      "name": { "type": "str", "access": "rw", "description": "Scene name (e.g. 'Verse', 'Chorus')" },
+      "color_index": { "type": "int", "access": "rw", "description": "Scene color (0–69)" },
+      "tempo": { "type": "float", "access": "rw", "description": "Scene tempo (-1 if not set, overrides song tempo on launch)" },
+      "is_triggered": { "type": "bool", "access": "r", "description": "Scene is triggered (queued)" },
+      "is_empty": { "type": "bool", "access": "r", "description": "All clip slots in this scene are empty" },
+      "clip_slots": { "type": "list[ClipSlot]", "access": "r", "description": "All clip slots in this scene row" }
+    },
+    "methods": {
+      "fire": { "signature": "()", "description": "Launch this scene (fire all clips)" },
+      "fire_as_selected": { "signature": "()", "description": "Fire and select this scene" },
+      "set_fire_button_state": { "signature": "(state)", "description": "Simulate scene launch button" }
+    }
+  },
+  "Chain": {
+    "description": "A chain inside a Rack device (Instrument Rack, Audio Effect Rack, etc.)",
+    "access": "song.tracks[i].devices[j].chains[k]",
+    "properties": {
+      "name": { "type": "str", "access": "rw", "description": "Chain name" },
+      "color_index": { "type": "int", "access": "rw", "description": "Chain color (0–69)" },
+      "mute": { "type": "bool", "access": "rw", "description": "Chain is muted" },
+      "solo": { "type": "bool", "access": "rw", "description": "Chain is soloed" },
+      "is_auto_colored": { "type": "bool", "access": "r", "description": "Chain color is automatic" },
+      "devices": { "type": "list[Device]", "access": "r", "description": "Devices in this chain" },
+      "mixer_device": { "type": "MixerDevice", "access": "r", "description": "Chain volume/panning" }
+    },
+    "methods": {
+      "delete_device": { "signature": "(device_index)", "description": "Delete a device from this chain" }
+    }
+  },
+  "Song.View": {
+    "description": "View state of the Live Set — selection, focus, detail",
+    "access": "song.view",
+    "properties": {
+      "selected_track": { "type": "Track", "access": "rw", "description": "Currently selected track" },
+      "selected_scene": { "type": "Scene", "access": "rw", "description": "Currently selected scene" },
+      "detail_clip": { "type": "Clip", "access": "r", "description": "Clip shown in detail view (None if no clip selected)" },
+      "highlighted_clip_slot": { "type": "ClipSlot", "access": "rw", "description": "The highlighted (focused) clip slot" },
+      "draw_mode": { "type": "bool", "access": "rw", "description": "Draw mode (pencil) enabled" },
+      "follow_song": { "type": "bool", "access": "rw", "description": "Follow playback position in arrangement" }
+    },
+    "methods": {
+      "select_device": { "signature": "(device)", "description": "Select a device and show it in detail view" }
+    }
+  },
+  "DrumPad": {
+    "description": "A pad in a Drum Rack — maps a MIDI note to a chain of devices",
+    "access": "song.tracks[i].devices[j].drum_pads[k]",
+    "properties": {
+      "name": { "type": "str", "access": "rw", "description": "Pad display name" },
+      "note": { "type": "int", "access": "r", "description": "MIDI note number this pad responds to" },
+      "mute": { "type": "bool", "access": "rw", "description": "Pad is muted" },
+      "solo": { "type": "bool", "access": "rw", "description": "Pad is soloed" },
+      "chains": { "type": "list[Chain]", "access": "r", "description": "Chains on this pad (usually one)" }
+    },
+    "methods": {
+      "delete_all_chains": { "signature": "()", "description": "Remove all chains from this pad" }
+    }
+  },
+  "_enums": {
+    "description": "Integer constants used by various properties",
+    "warp_mode": {
+      "used_by": "Clip.warp_mode",
+      "values": { "0": "Beats", "1": "Tones", "2": "Texture", "3": "Re-Pitch", "4": "Complex", "6": "Complex Pro" }
+    },
+    "launch_mode": {
+      "used_by": "Clip.launch_mode",
+      "values": { "0": "Trigger", "1": "Gate", "2": "Toggle", "3": "Repeat" }
+    },
+    "clip_trigger_quantization": {
+      "used_by": "Song.clip_trigger_quantization",
+      "values": { "0": "None", "1": "8 Bars", "2": "4 Bars", "3": "2 Bars", "4": "1 Bar", "5": "1/2", "6": "1/2T", "7": "1/4", "8": "1/4T", "9": "1/8", "10": "1/8T", "11": "1/16", "12": "1/16T", "13": "1/32" }
+    },
+    "midi_recording_quantization": {
+      "used_by": "Song.midi_recording_quantization",
+      "values": { "0": "None", "1": "1/4", "2": "1/8", "3": "1/8T", "4": "1/16", "5": "1/16T", "6": "1/32" }
+    },
+    "monitoring_state": {
+      "used_by": "Track.current_monitoring_state",
+      "values": { "0": "In", "1": "Auto", "2": "Off" }
+    },
+    "device_type": {
+      "used_by": "Device.type",
+      "values": { "0": "audio_effect", "1": "instrument", "2": "midi_effect" }
+    },
+    "crossfade_assign": {
+      "used_by": "MixerDevice.crossfade_assign",
+      "values": { "0": "None", "1": "A", "2": "B" }
+    },
+    "automation_state": {
+      "used_by": "DeviceParameter.state",
+      "values": { "0": "none", "1": "playing", "2": "overridden" }
+    }
+  }
+}
