@@ -9,11 +9,60 @@ MCP Server for Ableton Live, to let AI agents control or inspect Ableton.
 
 ## Quick Start
 
-1. **Install [uv](https://astral.sh/uv)** if you don't have it
-2. **Install Remote Script:** Copy the `ableton/` folder into Ableton's MIDI Remote Scripts directory as `AbletonLiveMCP/` (see [detailed instructions](#1-install-the-remote-script) below)
-3. **Enable in Ableton:** Settings > Link, Tempo & MIDI > Control Surface > **AbletonLiveMCP**
-4. **Connect Claude:** pick one method from [Setup](#2-connect-claude) below
-5. **Go:** Ask Claude to do something in Ableton
+### 1. Install the Remote Script
+
+Download [`ableton/__init__.py`](ableton/__init__.py) and place it in a new folder called **`AbletonLiveMCP`** inside Ableton's MIDI Remote Scripts directory:
+
+- **Windows:** `C:\ProgramData\Ableton\Live XX\Resources\MIDI Remote Scripts\AbletonLiveMCP\`
+- **macOS:** Right-click Ableton Live → Show Package Contents → `Contents/App-Resources/MIDI Remote Scripts/AbletonLiveMCP/`
+
+Then enable it in Ableton: **Settings → Link, Tempo & MIDI → Control Surface → AbletonLiveMCP** (Input/Output: None).
+
+### 2. Connect Claude
+
+First, install **[uv](https://astral.sh/uv)** (which includes `uvx`) if you don't already have it:
+
+| Platform | Command |
+|---|---|
+| **macOS** | `brew install uv` |
+| **Windows** | `winget install astral-sh.uv` |
+
+<details><summary>Alternative install methods</summary>
+
+```bash
+# macOS/Linux — standalone installer
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Windows — PowerShell standalone installer
+powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
+```
+
+</details>
+
+Then connect Claude:
+
+**Claude Code:**
+
+```bash
+claude mcp add --scope user AbletonLiveMCP -- uvx ableton-live-mcp
+```
+
+**Claude Desktop** — edit your config file (`~/Library/Application Support/Claude/claude_desktop_config.json` on macOS, `%APPDATA%\Claude\claude_desktop_config.json` on Windows):
+
+```json
+{
+    "mcpServers": {
+        "AbletonLiveMCP": {
+            "command": "uvx",
+            "args": ["ableton-live-mcp"]
+        }
+    }
+}
+```
+
+### 3. Go
+
+Make sure Ableton is running with the AbletonLiveMCP control surface active, then start (or restart) Claude and ask it to do something in Ableton.
 
 ## How It Works
 
@@ -26,7 +75,7 @@ Claude  →  MCP Server  →  TCP :16619  →  Remote Script (inside Ableton)
                                    (song, tracks, clips, devices, browser...)
 ```
 
-The Remote Script runs inside Ableton's embedded Python interpreter. Claude sends Python code as a string, the Remote Script `exec()`s it with the full Live API in scope, and returns the serialized result. There are no predefined commands — anything the Live API supports is available immediately.
+The MCP server and Remote Script communicate over TCP port 16619. The Remote Script runs inside Ableton's embedded Python interpreter — Claude sends Python code as a string, the Remote Script `exec()`s it with the full Live API in scope, and returns the serialized result. There are no predefined commands — anything the Live API supports is available immediately.
 
 ## What Claude Can Do
 
@@ -64,116 +113,6 @@ find_track("Bass").mixer_device.volume.value = 0.7
 song.tracks[0].mixer_device.panning.value = -0.3
 ```
 
-## Prerequisites
-
-- **Ableton Live 11+** (uses the extended MIDI note API)
-- **[uv](https://astral.sh/uv)** — handles Python and dependencies automatically
-
-### Install uv
-
-**macOS/Linux:**
-```bash
-curl -LsSf https://astral.sh/uv/install.sh | sh
-```
-
-**Windows:**
-```powershell
-powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
-```
-
-You do **not** need to install Python separately — `uv` manages that for you.
-
-## Setup
-
-### 1. Install the Remote Script
-
-The Remote Script runs inside Ableton. It needs to be in Ableton's MIDI Remote Scripts directory.
-
-**Option A — Download just the Remote Script** (if you're using `uvx` and don't need the full repo):
-
-Download [`ableton/__init__.py`](ableton/__init__.py) from this repo and place it in a folder called `AbletonLiveMCP` inside:
-
-- **Windows:** `C:\ProgramData\Ableton\Live XX\Resources\MIDI Remote Scripts\`
-- **macOS:** Right-click Ableton Live > Show Package Contents > `Contents/App-Resources/MIDI Remote Scripts/`
-
-**Option B — Clone the repo** and symlink (recommended for development):
-
-```bash
-git clone https://github.com/opendining/ableton-mcp-server.git
-```
-
-```powershell
-# Windows (PowerShell, run once)
-New-Item -ItemType Junction `
-  -Path "C:\ProgramData\Ableton\Live 12 Intro\Resources\MIDI Remote Scripts\AbletonLiveMCP" `
-  -Target "C:\path\to\abletonmcp\ableton"
-```
-
-Then enable in Ableton: Settings > Link, Tempo & MIDI > Control Surface > **AbletonLiveMCP** (Input/Output: None).
-
-### 2. Connect Claude
-
-Pick **one** method. Using multiple at once will start duplicate servers.
-
-#### Claude Desktop (no clone needed)
-
-Edit your config file:
-- **macOS:** `~/Library/Application Support/Claude/claude_desktop_config.json`
-- **Windows:** `%APPDATA%\Claude\claude_desktop_config.json`
-
-```json
-{
-    "mcpServers": {
-        "AbletonLiveMCP": {
-            "command": "uvx",
-            "args": ["ableton-live-mcp"]
-        }
-    }
-}
-```
-
-#### Claude Code (no clone needed)
-
-```bash
-claude mcp add --scope user AbletonLiveMCP -- uvx ableton-live-mcp
-```
-
-#### Claude Code plugin (clone required)
-
-Auto-starts the MCP server and loads the agent guide skill:
-```bash
-claude --plugin-dir /path/to/abletonmcp
-```
-
-#### From a cloned repo
-
-If you cloned the repo and want to run from source instead of PyPI:
-```bash
-# Claude Code
-claude mcp add --scope user AbletonLiveMCP -- uv run --directory /path/to/abletonmcp ableton-live-mcp
-```
-```json
-// Claude Desktop
-{
-    "mcpServers": {
-        "AbletonLiveMCP": {
-            "command": "uv",
-            "args": ["run", "--directory", "/path/to/abletonmcp", "ableton-live-mcp"]
-        }
-    }
-}
-```
-
-### 3. Verify
-
-1. Make sure Ableton is running with AbletonLiveMCP control surface active
-2. Start/restart your Claude client
-3. The MCP server connects to Ableton automatically on first use
-
-**Troubleshooting:** Check Ableton's Log.txt for Remote Script errors:
-- **Windows:** `%APPDATA%\Ableton\Live x.x.x\Preferences\Log.txt`
-- **macOS:** `~/Library/Preferences/Ableton/Live x.x.x/Log.txt`
-
 ## MCP Tools
 
 The server exposes three tools:
@@ -208,15 +147,70 @@ Every `execute` call gets a fresh namespace with:
 | `json` | The `json` module |
 | `time` | The `time` module |
 
-## Architecture
+## Development
 
-See [DEVELOPMENT.md](DEVELOPMENT.md) for the full technical guide.
+Requires [uv](https://astral.sh/uv) (see [install instructions](#2-connect-claude) above).
+
+**Clone and symlink** the Remote Script for live development (changes take effect on Ableton restart):
+
+```bash
+git clone https://github.com/opendining/ableton-mcp-server.git
+```
+
+```powershell
+# Windows (PowerShell, run once)
+New-Item -ItemType Junction `
+  -Path "C:\ProgramData\Ableton\Live 12 Intro\Resources\MIDI Remote Scripts\AbletonLiveMCP" `
+  -Target "C:\path\to\ableton-mcp-server\ableton"
+```
+
+**Run from source** instead of PyPI:
+
+```bash
+# Claude Code
+claude mcp add --scope user AbletonLiveMCP -- uv run --directory /path/to/ableton-mcp-server ableton-live-mcp
+```
+
+```json
+// Claude Desktop
+{
+    "mcpServers": {
+        "AbletonLiveMCP": {
+            "command": "uv",
+            "args": ["run", "--directory", "/path/to/ableton-mcp-server", "ableton-live-mcp"]
+        }
+    }
+}
+```
+
+**Claude Code plugin** — auto-starts the MCP server and loads the agent guide skill:
+
+```bash
+claude --plugin-dir /path/to/ableton-mcp-server
+```
+
+See [DEVELOPMENT.md](DEVELOPMENT.md) for the full architecture guide.
+
+## Troubleshooting
+
+If the MCP server can't reach Ableton, check:
+
+1. Ableton is running with AbletonLiveMCP control surface enabled
+2. No other MCP server instance is already connected (only one client at a time)
+
+Check Ableton's Log.txt for Remote Script errors:
+- **Windows:** `%APPDATA%\Ableton\Live x.x.x\Preferences\Log.txt`
+- **macOS:** `~/Library/Preferences/Ableton/Live x.x.x/Log.txt`
 
 ## Acknowledgments
 
 This project was inspired by [ahujasid/ableton-mcp](https://github.com/ahujasid/ableton-mcp), which pioneered the idea of connecting Ableton Live to AI agents via MCP. That project uses a fixed set of tool-per-action commands (create track, add notes, set tempo, etc.).
 
 This fork takes a different approach inspired by Cloudflare's [Code Mode](https://blog.cloudflare.com/code-mode/): instead of predefined commands, the agent writes and executes Python directly against Ableton's runtime. A streamlined execution scope with built-in helpers (`find_item`, `find_track`, `load_to`, etc.) and a searchable API reference give the model everything it needs to use the full Live API without being limited to a curated command set.
+
+## Disclaimer
+
+This project is unofficial and not affiliated with or supported by Ableton. For issues, please use the [issue tracker](https://github.com/opendining/ableton-mcp-server/issues) — not Ableton's support channels.
 
 ## License
 
