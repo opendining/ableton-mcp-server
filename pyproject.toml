@@ -1,6 +1,6 @@
 [project]
 name = "ableton-live-mcp"
-version = "0.1.0"
+version = "0.1.1"
 description = "Control Ableton Live with AI through the Model Context Protocol"
 readme = "README.md"
 requires-python = ">=3.10"
